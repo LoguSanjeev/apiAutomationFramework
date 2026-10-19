@@ -1,0 +1,19 @@
+# Keep environment-specific request data here. Quote IDs to keep them as strings.
+dev:
+  createUser:
+    name: "Development User"
+    job: "QA Engineer"
+  existingUser:
+    id: "1"
+stag:
+  createUser:
+    name: "Staging User"
+    job: "Senior QA Engineer"
+  existingUser:
+    id: "1"
+prod:
+  createUser:
+    name: "Production User"
+    job: "Automation Engineer"
+  existingUser:
+    id: "1"

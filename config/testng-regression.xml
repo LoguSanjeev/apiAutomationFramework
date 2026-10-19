@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+<suite name="API Regression Suite" parallel="none">
+    <test name="Dummy API and Common Utilities">
+        <groups>
+            <run><include name="regression"/></run>
+        </groups>
+        <classes>
+            <class name="com.qa.api.tests.DummyApiTest"/>
+            <class name="com.qa.api.tests.CommonUtilsTest"/>
+        </classes>
+    </test>
+</suite>

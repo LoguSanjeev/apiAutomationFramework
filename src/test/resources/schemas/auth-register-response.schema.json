@@ -1,0 +1,20 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "type": "object",
+  "required": ["data", "meta"],
+  "properties": {
+    "data": {
+      "type": "object",
+      "required": ["id", "name", "email", "role", "accessToken", "createdAt"],
+      "properties": {
+        "id": { "type": "integer", "minimum": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "email": { "type": "string", "minLength": 1 },
+        "role": { "type": "string", "minLength": 1 },
+        "accessToken": { "type": "string", "minLength": 1 },
+        "createdAt": { "type": "string", "minLength": 1 }
+      }
+    },
+    "meta": { "$ref": "auth-meta.schema.json" }
+  }
+}

@@ -3,6 +3,7 @@ package com.qa.api.tests.assets;
 import com.qa.api.commonUtils.TestLogger;
 import io.restassured.module.jsv.JsonSchemaValidator;
 import io.restassured.response.Response;
+import io.restassured.http.ContentType;
 import org.testng.Assert;
 
 /** Reusable assertions. Log before checking so a failed validation is easy to locate. */
@@ -19,6 +20,19 @@ public final class ApiAssertions {
         TestLogger.info("VALIDATION START: JSON field '" + jsonPath + "'");
         Assert.assertEquals(response.jsonPath().get(jsonPath), expected, "Unexpected JSON value: " + jsonPath);
         TestLogger.pass("VALIDATION END: JSON field '" + jsonPath + "' matches");
+    }
+
+    public static void statusMessage(Response response, String expectedMessage) {
+        TestLogger.info("VALIDATION START: HTTP response message should be '" + expectedMessage + "'");
+        Assert.assertTrue(response.statusLine().endsWith(" " + expectedMessage),
+                "Unexpected HTTP response message: " + response.statusLine());
+        TestLogger.pass("VALIDATION END: HTTP response message is '" + expectedMessage + "'");
+    }
+
+    public static void jsonContentType(Response response) {
+        TestLogger.info("VALIDATION START: Response content type is JSON");
+        response.then().assertThat().contentType(ContentType.JSON);
+        TestLogger.pass("VALIDATION END: Response content type is JSON");
     }
 
     public static void matchesSchema(Response response, String schemaResource) {

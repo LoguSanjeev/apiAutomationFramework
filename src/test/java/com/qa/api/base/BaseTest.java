@@ -16,6 +16,7 @@ public class BaseTest {
     protected EnvironmentConfig config;
     protected TestData testData;
     protected ApiClient apiClient;
+    protected int responseTimeLimit;
 
     @BeforeSuite(alwaysRun = true)
     public void beforeSuite() {
@@ -28,13 +29,14 @@ public class BaseTest {
         TestLogger.info("Preparing test class: " + getClass().getSimpleName());
         config = new EnvironmentConfig();
         testData = new TestData(config.getEnvironment());
+        responseTimeLimit = config.getPositiveInt("response.time.limit.ms");
         apiClient = new ApiClient(config.get("base.url"), config);
         // Add shared authentication or other prerequisites here when real APIs are available.
     }
 
     @AfterSuite(alwaysRun = true)
     public void afterSuite() {
-        TestLogger.info("SUITE END: Saving report to target/reports/ExtentReport.html");
+        TestLogger.info("SUITE END: Saving report to " + ReportManager.getCurrentReportPath());
         ReportManager.flush();
     }
 }

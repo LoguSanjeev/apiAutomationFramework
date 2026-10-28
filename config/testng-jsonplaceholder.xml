@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+<suite name="JSONPlaceholder Public API Suite" parallel="none">
+    <test name="Post API Contract Tests">
+        <groups>
+            <run><include name="jsonplaceholder"/></run>
+        </groups>
+        <classes>
+            <class name="com.qa.api.tests.JsonPlaceholderPostTest"/>
+        </classes>
+    </test>
+</suite>

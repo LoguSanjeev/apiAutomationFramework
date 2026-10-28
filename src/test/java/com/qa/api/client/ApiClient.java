@@ -30,22 +30,32 @@ public class ApiClient {
     }
 
     public Response get(String path) {
-        return request().get(path);
+        return request()
+                .when().get(path)
+                .then().extract().response();
     }
 
     public Response post(String path, Object payload) {
-        return request().body(payload).post(path);
+        return request().body(payload)
+                .when().post(path)
+                .then().extract().response();
     }
 
     public Response put(String path, Object payload) {
-        return request().body(payload).put(path);
+        return request().body(payload)
+                .when().put(path)
+                .then().extract().response();
     }
 
     public Response patch(String path, Object payload) {
-        return request().body(payload).patch(path);
+        return request().body(payload)
+                .when().patch(path)
+                .then().extract().response();
     }
 
     public Response delete(String path) {
-        return request().delete(path);
+        return request()
+                .when().delete(path)
+                .then().extract().response();
     }
 }

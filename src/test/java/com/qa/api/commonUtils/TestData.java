@@ -15,7 +15,7 @@ public class TestData {
         TestLogger.info("Selected test data for environment: " + environment);
     }
 
-    /** Example: getString("createUser.name"). */
+    /** Example: getString("posts.titlePrefix"). */
     public String getString(String keyPath) {
         TestLogger.info("Reading test data key: " + keyPath);
         Object value = data;

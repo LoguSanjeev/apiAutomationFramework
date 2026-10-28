@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "type": "object",
+  "required": ["data", "meta"],
+  "properties": {
+    "data": {
+      "type": "object",
+      "required": ["tokenType", "accessToken", "refreshToken", "expiresIn", "user"],
+      "properties": {
+        "tokenType": { "type": "string", "enum": ["Bearer"] },
+        "accessToken": { "type": "string", "minLength": 1 },
+        "refreshToken": { "type": "string", "minLength": 1 },
+        "expiresIn": { "type": "integer", "minimum": 1 },
+        "user": {
+          "type": "object",
+          "required": ["id", "email", "name", "role"],
+          "properties": {
+            "id": { "type": "integer", "minimum": 1 },
+            "email": { "type": "string", "minLength": 1 },
+            "name": { "type": "string", "minLength": 1 },
+            "role": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    },
+    "meta": { "$ref": "auth-meta.schema.json" }
+  }
+}

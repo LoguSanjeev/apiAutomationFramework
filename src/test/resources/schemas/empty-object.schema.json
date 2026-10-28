@@ -1,0 +1,6 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "title": "Empty JSON object returned for deletion or missing resources",
+  "type": "object",
+  "maxProperties": 0
+}

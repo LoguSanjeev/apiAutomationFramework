@@ -1,19 +1,22 @@
 # Keep environment-specific request data here. Quote IDs to keep them as strings.
 dev:
-  createUser:
-    name: "Development User"
-    job: "QA Engineer"
-  existingUser:
-    id: "1"
+  posts:
+    existingId: "1"
+    missingId: "999999"
+    userId: "1"
+    titlePrefix: "Development API test"
+    bodyPrefix: "Development dynamic post body"
 stag:
-  createUser:
-    name: "Staging User"
-    job: "Senior QA Engineer"
-  existingUser:
-    id: "1"
+  posts:
+    existingId: "1"
+    missingId: "999999"
+    userId: "1"
+    titlePrefix: "Staging API test"
+    bodyPrefix: "Staging dynamic post body"
 prod:
-  createUser:
-    name: "Production User"
-    job: "Automation Engineer"
-  existingUser:
-    id: "1"
+  posts:
+    existingId: "1"
+    missingId: "999999"
+    userId: "1"
+    titlePrefix: "Production demo API test"
+    bodyPrefix: "Production demo dynamic post body"

@@ -1,6 +1,6 @@
 # API Automation Framework
 
-A Java API testing skeleton using Rest Assured, TestNG, ExtentReports, Log4j 2,
+A Java API testing framework using Rest Assured, TestNG, ExtentReports, Log4j 2,
 Maven, and plain POJOs. Classes use normal methods, getters/setters, and simple
 collections so the framework is easy for a QA team to extend.
 
@@ -8,7 +8,7 @@ collections so the framework is easy for a QA team to extend.
 
 - JDK 17 or newer
 - Maven 3.9 or newer
-- Internet access for Maven's first dependency download
+- Internet access for Maven's first dependency download and JSONPlaceholder tests
 
 Check `mvn -version` to confirm Maven uses the intended JDK. If your shell uses an
 older Java version, set `JAVA_HOME` to a JDK 17+ installation and add its `bin`
@@ -17,10 +17,10 @@ directory to `PATH`. Set the same JDK in your IDE.
 From the project root:
 
 ```bash
-# Default: development data, smoke runner (2 tests)
+# Default: development data, smoke runner (2 public API tests)
 mvn clean test
 
-# Regression runner (4 dummy API tests + 3 file utility tests)
+# Regression runner (9 public API + 3 file utility tests)
 mvn clean test -Denv=development -DsuiteXmlFile=config/testng-regression.xml
 
 # Smoke tests using development data
@@ -31,16 +31,103 @@ mvn clean test -Denv=staging -DsuiteXmlFile=config/testng-regression.xml
 
 # Smoke tests using production data
 mvn clean test -Denv=production
+
+# Public JSONPlaceholder API tests only (9 tests)
+mvn clean test -Denv=development -DsuiteXmlFile=config/testng-jsonplaceholder.xml
+
+# Local utility checks only (3 tests, no external API calls)
+mvn clean test -DsuiteXmlFile=config/testng-local.xml
 ```
 
-The dummy tests start a small local HTTP server on an available loopback port,
-send actual Rest Assured requests, and stop the server afterward. They have no
-dependency on an external API. The sample server returns fixed dummy users and
-does not save data. Tests do not depend on execution order.
+`JsonPlaceholderPostTest` uses the environment's `base.url`. All three environment
+files currently point to `https://jsonplaceholder.typicode.com`, since this demo
+service provides a single public endpoint. The environment-specific test data
+still comes from separate YAML sections.
 
-**Only `DummyApiTest` replaces the configured URL with the local server URL.**
-The environment URLs are placeholders until you share your real APIs. Changing
-`base.url` will affect future real API test classes, not the dummy class.
+## JSONPlaceholder API coverage
+
+The public suite tests the `/posts` resource using the
+[JSONPlaceholder API guide](https://jsonplaceholder.typicode.com/guide/).
+
+| Test | Main validations |
+| --- | --- |
+| GET an existing post | 200 OK, JSON content type, schema, ID, user ID, non-blank title/body |
+| GET posts for a user | 200 OK, array schema, non-empty list, every post belongs to the requested user |
+| POST a dynamic post | 201 Created, schema, echoed request fields, generated ID, follow-up GET |
+| PUT a replacement | 200 OK, schema, all replacement fields, stable ID, follow-up GET |
+| PATCH the title | 200 OK, schema, new title, unchanged body/user ID, follow-up GET |
+| DELETE a post | 200 OK, empty JSON object and schema, follow-up GET |
+| GET a missing post | 404 Not Found, empty JSON object and schema |
+| GET an unknown route | 404 Not Found, empty JSON object and schema |
+| Filter using a missing user | 200 OK, array schema, empty list |
+
+Every POST and PUT builds a fresh title and body using the environment's YAML
+prefixes and a UUID. PATCH sends only a newly generated title. Request and response
+POJOs are in `pojo`, payload builders in `payloads`, and chainable response assertions
+in `tests.assets.ResponseAssert`. Each validation and HTTP action is logged to
+Log4j and ExtentReports. These tests run independently without TestNG dependencies.
+
+**Writes are simulated by JSONPlaceholder.** Each mutation test makes a follow-up
+GET and explicitly checks that documented behavior:
+
+- After POST, GET uses the ID returned by POST and expects 404 with `{}`.
+- Before PUT, PATCH, and DELETE, GET captures the original post. After the write,
+  another GET validates that every original field is still present and unchanged.
+
+These checks validate the public API's behavior; they do not demonstrate saved
+changes. Test names and `EXPECTED LIMITATION` log entries state this explicitly.
+JSONPlaceholder is public and has no authentication requirement, so 401/403 tests
+are not applicable. Its responses have no application `message` field; the tests
+validate HTTP response messages (`OK`, `Created`, `Not Found`) and actual body
+fields instead. POST correctly expects 201 rather than 200.
+
+## Writing readable tests
+
+Keep endpoint paths in `endpoints/Endpoints.java` and schema resource paths in
+`schemas/Schemas.java`. Use endpoint constants in requests and Rest Assured's
+`pathParam` for IDs. Base URLs remain in environment properties.
+
+Each request uses `given()` for its configuration and data, `when()` for the HTTP
+method, and `then()` to extract the response for the logged `ResponseAssert`
+validations. Add `import static io.restassured.RestAssured.given;` to the test.
+For example:
+
+```java
+TestLogger.info("STEP: Send GET request for an existing post");
+Response response =
+        given()
+            .spec(apiClient.request())
+            .pathParam("id", testData.getString("posts.existingId"))
+        .when()
+            .get(Endpoints.POST_BY_ID)
+        .then()
+            .extract().response();
+
+TestLogger.info("STEP: Validate status, JSON header, response time, schema, and body");
+ResponseAssert.assertThat(response)
+        .returns_200_OK()
+        .hasHeaderApplicationJson()
+        .isWithinAcceptedTimeLimit(responseTimeLimit)
+        .hasValidSchema(Schemas.POST_RESPONSE)
+        .hasNonBlankJsonValue("title")
+        .hasNonBlankJsonValue("body");
+```
+
+`ResponseAssert` uses simple methods that perform a check and return `this` so
+another check can follow. Each check logs its start and result through the common
+logging helpers. Test start/end, final status, and failures are handled by the
+listener automatically. Tests use local response variables and remain independent.
+
+Use `.returns_201_Created()` for creation and `.returns_404_NotFound()` for missing
+resources. For other APIs, use `.hasStatusCode(403)` and
+`.hasStatusMessage("Forbidden")`. These generic methods do not enable 403 tests
+against JSONPlaceholder, which has no authentication requirement.
+
+`response.time.limit.ms=10000` sets the maximum response duration in each
+environment file. `BaseTest` exposes it as `responseTimeLimit`. Override it at
+runtime with `-Dresponse.time.limit.ms=20000` when needed. HTTP connection/read
+timeouts are separate settings. The validation measures Rest Assured's response
+time in milliseconds and checks it is within the configured limit.
 
 ## Project layout
 
@@ -49,7 +136,9 @@ apiAutomationFramework/
 ├── pom.xml
 ├── config/
 │   ├── testng-smoke.xml
-│   └── testng-regression.xml
+│   ├── testng-regression.xml
+│   ├── testng-jsonplaceholder.xml
+│   └── testng-local.xml
 └── src/test/
     ├── java/com/qa/api/
     │   ├── base/
@@ -57,6 +146,8 @@ apiAutomationFramework/
     │   ├── client/
     │   │   ├── ApiClient.java
     │   │   └── ApiLoggingFilter.java
+    │   ├── endpoints/
+    │   │   └── Endpoints.java
     │   ├── commonUtils/
     │   │   ├── EnvironmentConfig.java
     │   │   ├── PropertiesUtils.java
@@ -68,19 +159,21 @@ apiAutomationFramework/
     │   ├── listeners/
     │   │   └── TestListener.java
     │   ├── payloads/
-    │   │   └── UserPayloads.java
+    │   │   └── PostPayloads.java
     │   ├── pojo/
-    │   │   ├── UserRequest.java
-    │   │   └── UserResponse.java
+    │   │   ├── PostRequest.java
+    │   │   ├── PostPatchRequest.java
+    │   │   └── PostResponse.java
     │   ├── reporting/
     │   │   └── ReportManager.java
+    │   ├── schemas/
+    │   │   └── Schemas.java
     │   └── tests/
-    │       ├── DummyApiTest.java
     │       ├── CommonUtilsTest.java
-    │       ├── assets/
-    │       │   └── ApiAssertions.java
-    │       └── support/
-    │           └── DummyApiServer.java
+    │       ├── JsonPlaceholderPostTest.java
+    │       └── assets/
+    │           ├── ApiAssertions.java
+    │           └── ResponseAssert.java
     └── resources/
         ├── environments/
         │   ├── dev.properties
@@ -89,7 +182,9 @@ apiAutomationFramework/
         ├── testdata/
         │   └── test-data.yml
         ├── schemas/
-        │   └── user-response.schema.json
+        │   ├── post-response.schema.json
+        │   ├── post-list.schema.json
+        │   └── empty-object.schema.json
         └── log4j2.xml
 ```
 
@@ -102,9 +197,10 @@ Schemas live in their own resource folder so they can be loaded from the classpa
 Environment properties hold settings such as the base URL and HTTP timeouts:
 
 ```properties
-base.url=https://dev.example.invalid
+base.url=https://jsonplaceholder.typicode.com
 connection.timeout.ms=10000
 read.timeout.ms=10000
+response.time.limit.ms=10000
 ```
 
 Use the full environment name at runtime. The framework maps it to the property
@@ -123,18 +219,19 @@ pass the full names shown above when running tests.
 
 ```yaml
 dev:
-  createUser:
-    name: "Development User"
-    job: "QA Engineer"
-  existingUser:
-    id: "1"
+  posts:
+    existingId: "1"
+    missingId: "999999"
+    userId: "1"
+    titlePrefix: "Development API test"
+    bodyPrefix: "Development dynamic post body"
 ```
 
 Read values in a test with:
 
 ```java
 String baseUrl = config.get("base.url");
-String name = testData.getString("createUser.name");
+String titlePrefix = testData.getString("posts.titlePrefix");
 ```
 
 JVM properties override environment file values, for example:
@@ -147,36 +244,56 @@ To add an environment, add its property file and matching YAML section, then add
 the full runtime name mapping in `EnvironmentConfig`. Keep credentials out of
 committed files.
 
-## Add your first real API test
+## Add another API test
 
 1. Replace the appropriate environment's `base.url`.
-2. Add request/response POJOs under `pojo` when needed.
-3. Add payload-building methods under `payloads`, reading values from YAML.
-4. Add a response schema under `src/test/resources/schemas`.
-5. Create a test in `tests` that extends `BaseTest`.
-6. Add its fully qualified class name to the runner's `<classes>` section.
+2. Add its paths to `endpoints/Endpoints.java`.
+3. Add request/response POJOs under `pojo` when needed.
+4. Add payload-building methods under `payloads`, reading values from YAML.
+5. Add a response schema under `src/test/resources/schemas` and its constant to `Schemas.java`.
+6. Create a test in `tests` that extends `BaseTest` and validates with `ResponseAssert`.
+7. Add its fully qualified class name to the runner's `<classes>` section.
 
 This is an example to adapt to your API contract, not an enabled test:
 
 ```java
 package com.qa.api.tests;
 
+import static io.restassured.RestAssured.given;
+
 import com.qa.api.base.BaseTest;
-import com.qa.api.payloads.UserPayloads;
-import com.qa.api.pojo.UserRequest;
-import com.qa.api.tests.assets.ApiAssertions;
+import com.qa.api.commonUtils.TestLogger;
+import com.qa.api.endpoints.Endpoints;
+import com.qa.api.payloads.PostPayloads;
+import com.qa.api.pojo.PostRequest;
+import com.qa.api.schemas.Schemas;
+import com.qa.api.tests.assets.ResponseAssert;
 import io.restassured.response.Response;
 import org.testng.annotations.Test;
 
-public class UserApiTest extends BaseTest {
+public class PostApiExampleTest extends BaseTest {
     @Test(groups = {"smoke", "regression"})
-    public void createUser() {
-        UserRequest payload = UserPayloads.createUser(testData);
-        Response response = apiClient.post("/users", payload);
+    public void createPost() {
+        PostRequest payload = PostPayloads.createPost(testData);
+        TestLogger.info("STEP: Send the create-post request");
+        Response response =
+                given()
+                    .spec(apiClient.request())
+                    .body(payload)
+                .when()
+                    .post(Endpoints.POSTS)
+                .then()
+                    .extract().response();
 
-        ApiAssertions.statusCode(response, 201);
-        ApiAssertions.matchesSchema(response, "schemas/user-response.schema.json");
-        ApiAssertions.jsonValue(response, "name", payload.getName());
+        TestLogger.info("STEP: Validate the create-post response");
+        ResponseAssert.assertThat(response)
+                .returns_201_Created()
+                .hasHeaderApplicationJson()
+                .isWithinAcceptedTimeLimit(responseTimeLimit)
+                .hasValidSchema(Schemas.POST_RESPONSE)
+                .hasJsonValue("title", payload.getTitle())
+                .hasJsonValue("body", payload.getBody())
+                .hasJsonValue("userId", payload.getUserId());
     }
 }
 ```
@@ -185,11 +302,16 @@ For headers, authentication, query parameters, or path parameters, use the same
 logged request specification:
 
 ```java
-Response response = apiClient.request()
-        .header("Authorization", "Bearer " + System.getProperty("api.token"))
-        .queryParam("page", 1)
-        .pathParam("id", testData.getString("existingUser.id"))
-        .get("/users/{id}");
+Response response =
+        given()
+            .spec(apiClient.request())
+            .header("Authorization", "Bearer " + System.getProperty("api.token"))
+            .queryParam("page", 1)
+            .pathParam("id", testData.getString("posts.existingId"))
+        .when()
+            .get(Endpoints.POST_BY_ID)
+        .then()
+            .extract().response();
 ```
 
 Shared authentication or prerequisites can be added to `BaseTest.beforeClass()`
@@ -202,18 +324,20 @@ Generated output:
 
 | Output | Location |
 | --- | --- |
-| Extent HTML report | `target/reports/ExtentReport.html` |
+| Extent HTML reports | `test-output/ExtentReport-yyyy-MM-dd_HH-mm-ss-SSS.html` |
 | Rolling Log4j log | `target/logs/automation.log` |
 | TestNG/Maven results | `target/surefire-reports/` |
 | File utility demo output | `target/utility-test-output/` |
 
-Open the Extent HTML report in a browser after a run. Each run replaces that report;
-`mvn clean` deletes all previous output under `target`.
+Open the latest timestamped Extent HTML report in a browser after a run. The
+`test-output` folder keeps the newest 30 Extent reports and automatically deletes
+the oldest report when the limit is exceeded. `mvn clean` does not remove this
+report history.
 
 `TestListener` records test starts, pass/fail/skip results, duration, failure stack
 traces, and setup/teardown failures. `ApiLoggingFilter` records every HTTP request
 and its response status and duration. Utilities log file operations and data keys.
-`ApiAssertions` logs validation starts and successful results; failures propagate
+`ResponseAssert` and `ApiAssertions` log validation starts and successful results; failures propagate
 to TestNG and the listener records them in the report and log.
 
 Use `TestLogger.info("Describe the action")` for additional steps so they appear

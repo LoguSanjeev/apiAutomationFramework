@@ -1,0 +1,11 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "type": "object",
+  "required": ["requestId", "responseTimeMs", "timestamp", "apiVersion"],
+  "properties": {
+    "requestId": { "type": "string", "minLength": 1 },
+    "responseTimeMs": { "type": "number", "minimum": 0 },
+    "timestamp": { "type": "string", "minLength": 1 },
+    "apiVersion": { "type": "string", "minLength": 1 }
+  }
+}
